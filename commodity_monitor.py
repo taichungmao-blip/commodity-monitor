@@ -26,57 +26,61 @@ def get_chip(sid):
         return ("🟢" if net > 0 else "🔴"), int(net)
     except: return "⚪", 0
 
-def fetch_safe_data(symbol, period="60d"):
-    """安全抓取數據，失敗時回傳 None 防止崩潰"""
+def fetch_safe(symbol, name):
+    """安全抓取數據，失敗不崩潰"""
     try:
-        data = yf.Ticker(symbol).history(period=period)
-        if data.empty: return None
-        return data
-    except: return None
+        print(f"正在抓取 {name} ({symbol})...")
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="60d")
+        if df.empty or len(df) < 2: return None
+        return df
+    except Exception as e:
+        print(f"{name} 抓取失敗: {e}")
+        return None
 
 def run_full_monitor():
     msg = f"🚀 **全產業綜合投資儀表板** ({datetime.now().strftime('%m/%d')})\n"
     
-    # 1. 抓取全球指標 (加入防錯)
-    bdry = fetch_safe_data("BDRY") # 散裝替代指標
-    oil = fetch_safe_data("CL=F")   # 原油
-    mu = fetch_safe_data("MU")     # 美光
-    sox = fetch_safe_data("^SOX")  # 費半
+    # 1. 抓取全球指標
+    bdry = fetch_safe("BDRY", "散裝指標")
+    oil = fetch_safe("CL=F", "原油價格")
+    mu = fetch_safe("MU", "美光科技")
+    sox = fetch_safe("^SOX", "費半指數")
 
-    # 指標狀態摘要
-    indicators = []
-    if bdry is not None: indicators.append(f"🚢BDRY:{bdry['Close'].iloc[-1]:.1f}")
-    if oil is not None: indicators.append(f"🛢️油價:{oil['Close'].iloc[-1]:.1f}")
-    if mu is not None: indicators.append(f"💻美光:{mu['Close'].pct_change().iloc[-1]*100:+.1f}%")
-    msg += " | ".join(indicators) + "\n---\n"
+    # 組合標題摘要
+    headers = []
+    if bdry is not None: headers.append(f"🚢BDRY:{bdry['Close'].iloc[-1]:.1f}")
+    if oil is not None: headers.append(f"🛢️油:{oil['Close'].iloc[-1]:.1f}")
+    if mu is not None: headers.append(f"💻美光:{mu['Close'].pct_change().iloc[-1]*100:+.1f}%")
+    msg += " | ".join(headers) + "\n---\n"
 
-    # 2. 掃描三大族群
+    # 2. 掃描族群
     groups = [("💾 記憶體電子", MEMORY), ("🚢 散裝航運", SHIPPING), ("🛢️ 塑化原料", PLASTIC)]
     
     for g_name, stocks in groups:
         msg += f"\n**【{g_name}】**"
         for sid, name in stocks.items():
-            s_data = fetch_safe_data(f"{sid}.TW")
-            if s_data is None:
-                msg += f"\n📌{name}: 數據讀取中斷"
+            s_df = fetch_safe(f"{sid}.TW", name)
+            if s_df is None:
+                msg += f"\n📌 {name}: 數據獲取異常"
                 continue
             
-            price = s_data['Close'].iloc[-1]
-            ma20 = s_data['Close'].rolling(20).mean().iloc[-1]
+            price = s_df['Close'].iloc[-1]
+            ma20 = s_df['Close'].rolling(20).mean().iloc[-1]
             bias = ((price - ma20) / ma20) * 100
             icon, net = get_chip(sid)
             
-            msg += f"\n📌{name}: {price:.1f} ({bias:+.1f}%) | 法人:{icon}{net:+}"
+            msg += f"\n📌 {name}: {price:.1f} (乖離{bias:+.1f}%) | 法人:{icon}{net:+}"
             
-            # 策略建議
-            if g_name == "💾 記憶體電子" and mu is not None and mu.history(period="2d")['Close'].pct_change().iloc[-1]*100 > 3:
-                msg += " ✨[美光帶動]"
-            if g_name == "🚢 散裝航運" and bdry is not None and bdry['Close'].iloc[-1] > bdry['Close'].rolling(20).mean().iloc[-1]:
-                if icon == "🟢": msg += " 🚀[雙多]"
+            # 策略建議邏輯 (修正了之前的 AttributeError)
+            if g_name == "💾 記憶體電子" and mu is not None:
+                if mu['Close'].pct_change().iloc[-1] * 100 > 3 and icon == "🟢": msg += " ✨[美光強勢]"
+            if g_name == "🚢 散裝航運" and bdry is not None:
+                if bdry['Close'].iloc[-1] > bdry['Close'].rolling(20).mean().iloc[-1] and icon == "🟢": msg += " 🚀[雙多]"
 
-    # 3. 發送 (Discord 訊息過長會自動截斷處理)
+    # 3. 發送
     if DISCORD_WEBHOOK_URL:
-        requests.post(DISCORD_WEBHOOK_URL, json={"content": msg[:2000]})
+        requests.post(DISCORD_WEBHOOK_URL, json={"content": msg[:1900]})
 
 if __name__ == "__main__":
     run_full_monitor()
