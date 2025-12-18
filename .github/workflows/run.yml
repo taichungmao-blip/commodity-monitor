@@ -1,0 +1,17 @@
+name: Commodity Composite Monitor
+on:
+  schedule:
+    - cron: '0 00 * * *' # 台灣時間 08:30
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with: {python-version: '3.9'}
+      - run: pip install yfinance requests pandas
+      - env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python commodity_monitor.py
