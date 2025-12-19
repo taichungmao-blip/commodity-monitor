@@ -3,7 +3,8 @@ on:
   schedule:
     # 這裡的 23 30 代表 UTC 時間 23:30，即日本時間隔天的 08:30
     - cron: '40 23 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # 允許手動執行測試
+
 jobs:
   run:
     runs-on: ubuntu-latest
