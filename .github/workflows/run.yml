@@ -1,7 +1,8 @@
 name: Commodity Composite Monitor
 on:
   schedule:
-    - cron: '0 00 * * *' # 台灣時間 08:30
+    # 這裡的 23 30 代表 UTC 時間 23:30，即日本時間隔天的 08:30
+    - cron: '30 23 * * *'
   workflow_dispatch:
 jobs:
   run:
