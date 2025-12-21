@@ -1,8 +1,9 @@
 name: Commodity Composite Monitor
 on:
   schedule:
-    # 這裡的 23 30 代表 UTC 時間 23:30，即日本時間隔天的 08:30
-    - cron: '40 23 * * *'
+    # 30 21 * * 0-4 代表 UTC 時間週日到週四的 21:30 執行
+    # 對應日本時間 (UTC+9) 即為週一到週五的 06:30 執行 (美股收盤時段)
+    - cron: '30 21 * * 0-4'
   workflow_dispatch: # 允許手動執行測試
 
 jobs:
